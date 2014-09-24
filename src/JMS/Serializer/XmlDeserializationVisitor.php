@@ -229,20 +229,14 @@ class XmlDeserializationVisitor extends AbstractVisitor
                 
             } elseif (isset($data[$name])) {
                 $v = $this->navigator->accept($data[$name], $metadata->type, $context);
-                $metadata->reflection->setValue($this->currentObject, $v);
             }
-
-            return;
         }
 
-        if ($metadata->xmlValue) {
+        else if ($metadata->xmlValue) {
             $v = $this->navigator->accept($data, $metadata->type, $context);
-            $metadata->reflection->setValue($this->currentObject, $v);
-
-            return;
         }
 
-        if ($metadata->xmlCollection) {
+        else if ($metadata->xmlCollection) {
             $enclosingElem = $data;
             if (!$metadata->xmlCollectionInline && isset($data->$name)) {
                 $enclosingElem = $data->$name;
@@ -251,39 +245,40 @@ class XmlDeserializationVisitor extends AbstractVisitor
             $this->setCurrentMetadata($metadata);
             $v = $this->navigator->accept($enclosingElem, $metadata->type, $context);
             $this->revertCurrentMetadata();
-            $metadata->reflection->setValue($this->currentObject, $v);
-
-            return;
+        }
+        
+        else {
+            if ('' !== $namespace = (string) $metadata->xmlNamespace) {
+                $registeredNamespaces = $data->getDocNamespaces();
+                if (false === $prefix = array_search($namespace, $registeredNamespaces)) {
+                    $prefix = uniqid('ns-');
+                    $data->registerXPathNamespace($prefix, $namespace);
+                }
+                $elementName = ($prefix === '')?$name:$prefix.':'.$name;
+                $nodes = $data->xpath('./'.$elementName );
+                if (empty($nodes)) {
+                    return;
+                }
+                $node = reset($nodes);
+            } else {
+                if (!isset($data->$name)) {
+                    return;
+                }
+                $node = $data->$name;
+            }
+            
+            $v = $this->navigator->accept($node, $metadata->type, $context);
         }
 
-        if ('' !== $namespace = (string) $metadata->xmlNamespace) {
-            $registeredNamespaces = $data->getDocNamespaces();
-            if (false === $prefix = array_search($namespace, $registeredNamespaces)) {
-                $prefix = uniqid('ns-');
-                $data->registerXPathNamespace($prefix, $namespace);
-            }
-            $elementName = ($prefix === '')?$name:$prefix.':'.$name;
-            $nodes = $data->xpath('./'.$elementName );
-            if (empty($nodes)) {
+        if(isset($v)) {
+            if (null === $metadata->setter) {
+                $metadata->reflection->setValue($this->currentObject, $v);
+    
                 return;
             }
-            $node = reset($nodes);
-        } else {
-            if (!isset($data->$name)) {
-                return;
-            }
-            $node = $data->$name;
+    
+            $this->currentObject->{$metadata->setter}($v);
         }
-
-        $v = $this->navigator->accept($node, $metadata->type, $context);
-
-        if (null === $metadata->setter) {
-            $metadata->reflection->setValue($this->currentObject, $v);
-
-            return;
-        }
-
-        $this->currentObject->{$metadata->setter}($v);
     }
 
     public function endVisitingObject(ClassMetadata $metadata, $data, array $type, Context $context)

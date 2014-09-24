@@ -1,5 +1,5 @@
 {
-    "name": "jms/serializer",
+    "name": "it-tecture/serializer",
     "type": "library",
     "description": "Library for (de-)serializing data of any complexity; supports XML, JSON, and YAML.",
     "keywords": ["serialization", "deserialization", "json", "jaxb", "xml"],
@@ -43,5 +43,8 @@
         "branch-alias": {
             "dev-master": "0.15-dev"
         }
+    },
+    "replace": {
+        "jms/serializer": "1.16.*"
     }
 }
